@@ -1,6 +1,6 @@
 require('dotenv').config();
 const { Consumer } = require('sqs-consumer');
-const { SQSClient, DeleteMessageCommand } = require('@aws-sdk/client-sqs'); // Import Delete Command
+const { SQSClient, DeleteMessageCommand } = require('@aws-sdk/client-sqs'); 
 const { S3Client, GetObjectCommand } = require('@aws-sdk/client-s3');
 const { Upload } = require('@aws-sdk/lib-storage');
 const ffmpeg = require('fluent-ffmpeg');
@@ -8,13 +8,13 @@ const fs = require('fs-extra');
 const path = require('path');
 const { pipeline } = require('stream/promises');
 
-// --- CONFIGURATION ---
-const REGION = process.env.AWS_REGION || 'ap-south-1'; // Ensure this matches your bucket/queue
+//  CONFIGURATION
+const REGION = process.env.AWS_REGION || 'ap-south-1'; 
 const SQS_URL = process.env.SQS_QUEUE_URL;
 const INPUT_BUCKET = process.env.INPUT_BUCKET;
 const OUTPUT_BUCKET = process.env.OUTPUT_BUCKET;
 
-// --- AWS CLIENTS ---
+// AWS CLIENTS 
 const s3Client = new S3Client({ 
     region: REGION,
     credentials: {
@@ -31,15 +31,15 @@ const sqsClient = new SQSClient({
     }
 });
 
-/**
- * --- WORKER INITIALIZATION ---
- */
+
+ //WORKER INITIALIZATION 
+ 
 const app = Consumer.create({
     queueUrl: SQS_URL,
     sqs: sqsClient,
     batchSize: 1,
-    shouldDeleteMessages: false, // <--- CRITICAL: We turn off auto-delete
-    
+    shouldDeleteMessages: false, 
+
     handleMessage: async (message) => {
         let body;
         try {
@@ -70,10 +70,10 @@ const app = Consumer.create({
         console.log(`\n📦 Job Received: ${objectKey}`);
 
         try {
-            // 1. Process the Video
+            // Process the Video
             await processVideoPipeline(objectKey);
             
-            // 2. MANUAL DELETE (Only runs if processing succeeds)
+            //  MANUAL DELETE (Only runs if processing succeeds)
             console.log('🗑️  Deleting message from Queue...');
             await deleteMessage(message.ReceiptHandle);
             console.log('✅ Message Deleted Successfully!');
@@ -81,7 +81,7 @@ const app = Consumer.create({
         } catch (error) {
             console.error('❌ Pipeline Failed. Keeping message in queue for retry.');
             console.error(error.message);
-            // We do NOT delete here, so SQS will retry after VisibilityTimeout
+            
         }
     }
 });
@@ -92,10 +92,8 @@ app.on('processing_error', (err) => console.error('❌ Processing Error:', err.m
 app.start();
 console.log('🚀 Transcoder Worker (Manual Delete Mode) is running...');
 
+// HELPER: Manual Delete
 
-/**
- * --- HELPER: Manual Delete ---
- */
 async function deleteMessage(receiptHandle) {
     try {
         const command = new DeleteMessageCommand({
@@ -105,15 +103,13 @@ async function deleteMessage(receiptHandle) {
         await sqsClient.send(command);
     } catch (err) {
         console.error(`❌ FAILED to delete message from SQS: ${err.message}`);
-        // This log is what we are looking for. 
-        // If this prints, we know exactly why the loop is happening.
+        //incase the same event is pulled multiple times
         throw err; 
     }
 }
 
-/**
- * --- TRANSCODING PIPELINE ---
- */
+ // TRANSCODING PIPELINE 
+
 async function processVideoPipeline(objectKey) {
     const runId = Date.now();
     const fileName = path.basename(objectKey);
@@ -127,13 +123,13 @@ async function processVideoPipeline(objectKey) {
     try {
         await fs.ensureDir(workDir);
 
-        // Step 1: Download
+        //  Download
         console.log(`   ⬇️  Downloading...`);
         const command = new GetObjectCommand({ Bucket: INPUT_BUCKET, Key: objectKey });
         const response = await s3Client.send(command);
         await pipeline(response.Body, fs.createWriteStream(inputPath));
 
-        // Step 2: Transcode
+        //  Transcode
         console.log(`   🎬 Transcoding...`);
         await new Promise((resolve, reject) => {
             ffmpeg(inputPath)
@@ -150,7 +146,7 @@ async function processVideoPipeline(objectKey) {
                 .run();
         });
 
-        // Step 3: Upload
+        //  Upload
         console.log(`   ⬆️  Uploading...`);
         const filesToUpload = [output480, output360];
         const uploadPromises = filesToUpload.map(filePath => {
