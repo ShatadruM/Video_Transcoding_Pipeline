@@ -15,7 +15,6 @@ A distributed, production-grade video processing service designed to handle high
 * **Runtime:** Node.js, Docker
 * **Cloud Services:** AWS S3 (Storage), AWS SQS (Queuing), AWS EC2 (Compute)
 * **Core Libraries:** `fluent-ffmpeg`, `@aws-sdk/client-s3`, `sqs-consumer`
-* **DevOps:** Docker, AWS IAM
 
 ---
 
